@@ -21,6 +21,7 @@ TrafficLightPhase MessageQueue<TrafficLightPhase>::receive()
     return phase;
 }
 
+template <class TrafficLightPhase>
 void MessageQueue<TrafficLightPhase>::send(TrafficLightPhase &&phase)
 {
     // FP.4a : The method send should use the mechanisms std::lock_guard<std::mutex> 
