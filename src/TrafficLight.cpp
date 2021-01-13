@@ -6,7 +6,7 @@
 
 /* Implementation of class "MessageQueue" */
 
-
+template <class TrafficLightPhase>
 TrafficLightPhase MessageQueue<TrafficLightPhase>::receive()
 {
     // FP.5a : The method receive should use std::unique_lock<std::mutex> and _condition.wait() 
@@ -68,7 +68,7 @@ void TrafficLight::simulate()
 {
     // FP.2b : Finally, the private method „cycleThroughPhases“ should be started in a thread when the public
     // method „simulate“ is called. To do this, use the thread queue in the base class.
-    TrafficObject::threads.emplace_back(std::async(std::launch::async, &TrafficLight::cycleThroughPhases, this));
+    TrafficObject::threads.emplace_back(std::thread(&TrafficLight::cycleThroughPhases, this));
 }
 
 // virtual function which is executed in a thread
