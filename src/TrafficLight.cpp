@@ -6,8 +6,8 @@
 
 /* Implementation of class "MessageQueue" */
 
-template <class TrafficLightPhase>
-TrafficLightPhase MessageQueue<TrafficLightPhase>::receive()
+template <class T>
+T MessageQueue<T>::receive()
 {
     // FP.5a : The method receive should use std::unique_lock<std::mutex> and _condition.wait() 
     // to wait for and receive new messages and pull them from the queue using move semantics. 
@@ -15,20 +15,19 @@ TrafficLightPhase MessageQueue<TrafficLightPhase>::receive()
 
     std::unique_lock<std::mutex> uLock(_mutex);
     _cond.wait(uLock, [this] { return !_queue.empty(); });
-    TrafficLightPhase phase = std::move(_queue.back());
+    T phase = std::move(_queue.back());
     _queue.pop_back();
-    -- _size;
     return phase;
 }
 
-template <class TrafficLightPhase>
-void MessageQueue<TrafficLightPhase>::send(TrafficLightPhase &&phase)
+template <class T>
+void MessageQueue<T>::send(T &&phase)
 {
     // FP.4a : The method send should use the mechanisms std::lock_guard<std::mutex> 
     // as well as _condition.notify_one() to add a new message to the queue and afterwards send a notification.
     std::lock_guard<std::mutex> lck(_mutex);
     _queue.push_back(std::move(phase));
-    ++_size;
+    _cond.notify_one();
 }
 
 
@@ -46,11 +45,10 @@ void TrafficLight::waitForGreen()
     // Once it receives TrafficLightPhase::green, the method returns.
     while (true)
     {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
         if (TrafficLightPhase::green == _phaseQueue.receive())
         {
-            break;
-        } else {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            return;
         }
     }
 }
@@ -78,10 +76,28 @@ void TrafficLight::cycleThroughPhases()
     // FP.2a : Implement the function with an infinite loop that measures the time between two loop cycles 
     // and toggles the current phase of the traffic light between red and green and sends an update method 
     // to the message queue using move semantics. The cycle duration should be a random value between 4 and 6 seconds. 
-    // Also, the while-loop should use std::this_thread::sleep_for to wait 1ms between two cycles. 
+    // Also, the while-loop should use std::this_thread::sleep_for to wait 1ms between two cycles.
+
+    std::random_device rd;
+    std::mt19937::result_type seed = rd() ^ (
+            (std::mt19937::result_type)
+            std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()
+                ).count() +
+            (std::mt19937::result_type)
+            std::chrono::duration_cast<std::chrono::microseconds>(
+                std::chrono::high_resolution_clock::now().time_since_epoch()
+                ).count() );
+
+    std::mt19937 gen(seed);
+    std::uniform_int_distribution<unsigned> distrib(4000, 6000);
+    
     while (true)
     {
-        std::this_thread::sleep_for(std::chrono::milliseconds(5000)); // make this random later
+        std::this_thread::sleep_for(std::chrono::milliseconds(distrib(gen)));
+
+        // compute time difference to stop watch
+
         if (_currentPhase == TrafficLightPhase::red) {
             this->setCurrentPhase(TrafficLightPhase::green);
         } else {
