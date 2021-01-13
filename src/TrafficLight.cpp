@@ -2,6 +2,7 @@
 #include <random>
 #include <thread>
 #include <future>
+#include <chrono>
 #include "TrafficLight.h"
 
 /* Implementation of class "MessageQueue" */
@@ -84,31 +85,34 @@ void TrafficLight::cycleThroughPhases()
     // Also, the while-loop should use std::this_thread::sleep_for to wait 1ms between two cycles.
 
     std::random_device rd;
-    std::mt19937::result_type seed = rd() ^ (
-            (std::mt19937::result_type)
-            std::chrono::duration_cast<std::chrono::seconds>(
-                std::chrono::system_clock::now().time_since_epoch()
-                ).count() +
-            (std::mt19937::result_type)
-            std::chrono::duration_cast<std::chrono::microseconds>(
-                std::chrono::high_resolution_clock::now().time_since_epoch()
-                ).count() );
+    std::mt19937 eng(rd());
+    std::uniform_int_distribution<int> distribution(4,6);    
 
-    std::mt19937 gen(seed);
-    std::uniform_int_distribution<unsigned> distrib(4000, 6000);
+    int curr_cycle_length = distribution(eng); // random number between 4 and 6;
+
+    auto start_time = std::chrono::system_clock::now();
+
+    auto curr_time = start_time;
+
+    TrafficLightPhase nextPhase;
     
     while (true)
     {
-        std::this_thread::sleep_for(std::chrono::milliseconds(distrib(gen)));
+        curr_time = std::chrono::system_clock::now();
 
-        // compute time difference to stop watch
+        if (std::chrono::duration_cast<std::chrono::seconds>(curr_time - start_time).count() > curr_cycle_length ) {
 
-        if (_currentPhase == TrafficLightPhase::red) {
-            this->setCurrentPhase(TrafficLightPhase::green);
-        } else {
-            this->setCurrentPhase(TrafficLightPhase::red);
+            // compute time difference to stop watch
+
+            if (_currentPhase == TrafficLightPhase::red) {
+                this->setCurrentPhase(TrafficLightPhase::green);
+            } else {
+                this->setCurrentPhase(TrafficLightPhase::red);
+            }
+            curr_cycle_length = distribution(eng);
+            start_time = std::chrono::system_clock::now();
+            _phaseQueue.send(std::move(_currentPhase));
         }
-        _phaseQueue.send(std::move(_currentPhase));
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 }
