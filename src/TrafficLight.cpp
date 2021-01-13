@@ -16,7 +16,12 @@ T MessageQueue<T>::receive()
     std::unique_lock<std::mutex> uLock(_mutex);
     _cond.wait(uLock, [this] { return !_queue.empty(); });
     T phase = std::move(_queue.back());
-    _queue.pop_back();
+    // _queue.pop_back();
+    // the problem with poping is that a spurious wake up causes the receive() to read the next entry in _queue without a proper notification from notify_one()
+    // and _queue.empty() predicate will not stop it. This happens when the intersection has not been visited previously and the data is accumulated in the queue.
+    // When you clear the queue each time, the message queue becomes empty so the predicate for wait() will avoid any spurious wake ups and that's why the
+    // _queue.clear() works in this case.
+    _queue.clear();
     return phase;
 }
 
